@@ -34,7 +34,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
     */
     address public superAdmin;
     address payable feeAccount;
-    uint marketplaceFeePercent;
+    uint public marketplaceFeePercent;
     NFT nftContractInstance;
     Collections collectionsContractInstance;
     Businesses businessesContractInstance;
@@ -180,6 +180,12 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         IERC721(address(nftContractInstance)).safeTransferFrom(address(this), _n.highestBidder,
         _nftId);
         nftContractInstance.setSold(_nftId, msg.sender);
+        delete onGoingAuctions[_nftId];
+        uint256 _temp = nftIdToAuctionIndex[_nftId];
+        nftsOnAuction[_temp] = nftsOnAuction[nftsOnAuction.length - 1];
+        nftIdToAuctionIndex[nftsOnAuction[_temp]] = _temp;
+        nftsOnAuction.pop();
+        delete nftIdToAuctionIndex[_nftId];
     }
 
     /**
@@ -213,6 +219,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         Definitions.Nft memory _nft = nftContractInstance.getNftByTokenId(_nftId);
         require (msg.sender == _nft.details.seller, "Only owner can put an nft on auction.");
         require (_nft.details.isListed, "Only listed nfts can be put to auction.");
+        require (onGoingAuctions[_nftId].bid_end_time == 0, "Nft is already put on auction");
         onGoingAuctions[_nftId] = Definitions.NftOnAuction(_nftId, address(0), basePrice, block.timestamp + biddingTimeInSec);
         nftsOnAuction.push(_nftId);
         nftIdToAuctionIndex[_nftId] = nftsOnAuction.length-1;
@@ -228,7 +235,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         delete onGoingAuctions[_nftId];
         uint256 _temp = nftIdToAuctionIndex[_nftId];
         nftsOnAuction[_temp] = nftsOnAuction[nftsOnAuction.length - 1];
-        nftIdToAuctionIndex[_temp] = onGoingAuctions[nftsOnAuction[_temp]].nftId;
+        nftIdToAuctionIndex[nftsOnAuction[_temp]] = _temp;
         nftsOnAuction.pop();
         delete nftIdToAuctionIndex[_nftId];
     }
@@ -266,6 +273,14 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
     function getNftAuctionDetails(uint256 _nftId) public view returns(Definitions.NftOnAuction memory){
         require(nftsOnAuction.length != 0 || nftIdToAuctionIndex[_nftId] != 0 || nftsOnAuction[0] == _nftId, "The provided nft is not on auction currently.");
         return onGoingAuctions[_nftId];
+    }
+
+    /**
+    This method returns the ids of all the nfts that are currently in auction.
+    @return - An array containing list of all nft ids.
+    */
+    function getNftsInAuction() public view returns(uint256[] memory){
+        return nftsOnAuction;
     }
 
     /**

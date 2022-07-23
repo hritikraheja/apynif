@@ -77,7 +77,8 @@ contract Collections is ReentrancyGuard{
             _collectionIdGenerator.increment();
             address payable _a = payable(msg.sender);
             allCollections.push(Definitions.Collection(_collectionIdGenerator.current(), 
-            _collectionName, _collectionCoverImageUri, _collectionDescription, _collectionOwnerName, _a, _tokenIds.length, _tokenIds, false, _category));
+            _collectionName, _collectionCoverImageUri, _collectionDescription, _collectionOwnerName,
+             _a, _tokenIds.length, _tokenIds, true, _category));
             collectionCount++;
             idToIndex[_collectionIdGenerator.current()] = allCollections.length - 1;
             return (_collectionIdGenerator.current());
@@ -102,7 +103,7 @@ contract Collections is ReentrancyGuard{
             _collectionIdGenerator.increment();
             allCollections.push(Definitions.Collection(_collectionIdGenerator.current(), 
             _collectionName, _collectionCoverImageUri, _collectionDescription, _collectionOwnerName, 
-            payable(_sender), _tokenIds.length, _tokenIds, false, _category));
+            payable(_sender), _tokenIds.length, _tokenIds, true, _category));
             collectionCount++;
             idToIndex[_collectionIdGenerator.current()] = allCollections.length - 1;
             return (_collectionIdGenerator.current());
@@ -150,6 +151,7 @@ contract Collections is ReentrancyGuard{
         uint256 _index = idToIndex[_collectionId];
         require(_index != 0 || allCollections[_index].collectionId == _collectionId, "Collection doesn't exist.");
         require(_sender == allCollections[_index].collectionOwnerAddress, "Only owner can list a collection.");
+        require(!allCollections[_index].isListed, "Collection is already listed.");
         allCollections[_index].isListed = true;
     }
 
@@ -223,7 +225,7 @@ contract Collections is ReentrancyGuard{
         }
         allCollections[_index].nftIds.pop();
         allCollections[_index].nftCount = allCollections[_index].nftCount - 1;
-        nftContractInstance.addNftToSingleNftsArray(marketplaceContractAddress, _nftId);
+        nftContractInstance.addNftToSingleNftsArray(msg.sender, _nftId);
         delete nftIdToCollectionId[_nftId];
     }
 

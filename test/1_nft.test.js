@@ -6,8 +6,6 @@ const Collections = artifacts.require('Collections');
 const Businesses = artifacts.require('Businesses');
 const Marketplace = artifacts.require('Marketplace');
 
-//require('chai').use(require('chai-as-promised')).should();
-
 contract('NFT', ([deployer, investor]) => {
 
     let nftContract;
@@ -80,44 +78,6 @@ contract('NFT', ([deployer, investor]) => {
             await nftContract.unlistNft(investor, '2', {from : investor});
             const owner = await nftContract.ownerOf('2');
             assert.equal(owner, investor);
-        })
-    })
-})
-
-
-contract('Collections', async([deployer, investor]) => {
-
-    let nftContract;
-    let collectionsContract;
-    let businessesContract;
-    let marketplaceContract;
-
-    before(async() => {
-        nftContract = await NFT.deployed();
-        collectionsContract = await Collections.deployed();
-        businessesContract = await Businesses.deployed();
-        marketplaceContract = await Marketplace.deployed();
-    })
-
-    describe('Creation and Deletion of collections', async() => {
-        it('Collection created successfully', async() => {
-            await collectionsContract.createCollection('MyCollection1', 'imageURI!',
-            'This is my first collection', 'Hritik', [], 'ABC', {from : investor});
-            const collectionCount = await collectionsContract.collectionCount();
-            assert.equal(collectionCount, 1);
-        })
-
-        it('Created collection has correct details', async() => {
-            const _collection = await collectionsContract.allCollections(0);
-            assert.equal(_collection.collectionId, 1);
-            assert.equal(_collection.collectionName, 'MyCollection1');
-            assert.equal(_collection.collectionOwnerName, 'Hritik');
-        })
-
-        it('Collection deleted successfully', async() => {
-            await collectionsContract.deleteCollection('1', {from : investor});
-            const collectionCount = await collectionsContract.collectionCount();
-            assert.equal(collectionCount, 0);
         })
     })
 })
