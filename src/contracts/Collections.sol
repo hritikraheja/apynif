@@ -36,6 +36,14 @@ contract Collections is ReentrancyGuard{
     address marketplaceContractAddress;
     Marketplace marketplaceContractInstance;
 
+    event collectionCreated(uint collectionId, string collectionName, string collectionDesc,
+    string category, string ownerName, address ownerAddress);
+    event collectionDeleted(uint collectionId, address ownerAddress);
+    event collectionListed(uint collectionId, address ownerAddress);
+    event collectionUnlisted(uint collectionId, address ownerAddress);
+    event nftAddedToCollection(uint collectionId, uint nftId, address ownerAddress);
+    event nftRemovedFromCollection(uint collectionId, uint nftId, address ownerAddress);
+
     /**
     The deployed NFT contract's address is provided as a parameter in the constructor, 
     in order to create an instance.
@@ -81,6 +89,8 @@ contract Collections is ReentrancyGuard{
              _a, _tokenIds.length, _tokenIds, true, _category));
             collectionCount++;
             idToIndex[_collectionIdGenerator.current()] = allCollections.length - 1;
+            emit collectionCreated(_collectionIdGenerator.current(), _collectionName, _collectionDescription,
+            _category, _collectionOwnerName, _a);
             return (_collectionIdGenerator.current());
     }
 
@@ -106,6 +116,8 @@ contract Collections is ReentrancyGuard{
             payable(_sender), _tokenIds.length, _tokenIds, true, _category));
             collectionCount++;
             idToIndex[_collectionIdGenerator.current()] = allCollections.length - 1;
+            emit collectionCreated(_collectionIdGenerator.current(), _collectionName, _collectionDescription,
+            _category, _collectionOwnerName, _sender);
             return (_collectionIdGenerator.current());
     }
 
@@ -130,6 +142,7 @@ contract Collections is ReentrancyGuard{
         uint256 _index = idToIndex[_collectionId];
         require(allCollections[_index].nftCount == 0, "Collection isn't empty, cannot be deleted.");
         require(_index != 0 || allCollections[_index].collectionId == _collectionId, "Collection doesn't exist.");
+        //require(allCollections[_index].collectionOwnerAddress == msg.sender, "Only owner can delete a collection.");
         if(allCollections.length > 1){
             Definitions.Collection memory _temp = allCollections[_index];
             allCollections[_index] = allCollections[collectionCount-1];
@@ -139,6 +152,7 @@ contract Collections is ReentrancyGuard{
         allCollections.pop();
         collectionCount--;
         delete idToIndex[_collectionId];
+        emit collectionDeleted(_collectionId, msg.sender);
     }
 
     /**
@@ -153,6 +167,7 @@ contract Collections is ReentrancyGuard{
         require(_sender == allCollections[_index].collectionOwnerAddress, "Only owner can list a collection.");
         require(!allCollections[_index].isListed, "Collection is already listed.");
         allCollections[_index].isListed = true;
+        emit collectionListed(_collectionId, _sender);
     }
 
     /**
@@ -166,6 +181,7 @@ contract Collections is ReentrancyGuard{
         require(_index != 0 || allCollections[_index].collectionId == _collectionId, "Collection doesn't exist.");
         require(_sender == allCollections[_index].collectionOwnerAddress, "Only owner can unlist a collection.");
         allCollections[_index].isListed = false;
+        emit collectionUnlisted(_collectionId, _sender);
     }
 
     /**
@@ -183,6 +199,7 @@ contract Collections is ReentrancyGuard{
         allCollections[_index].nftIds.push(_listedNftId);
         allCollections[_index].nftCount = allCollections[_index].nftCount + 1;
         nftIdToCollectionId[_listedNftId] = _collectionId;
+        emit nftAddedToCollection(_collectionId, _listedNftId, msg.sender);
     }
     
     /**
@@ -227,6 +244,7 @@ contract Collections is ReentrancyGuard{
         allCollections[_index].nftCount = allCollections[_index].nftCount - 1;
         nftContractInstance.addNftToSingleNftsArray(msg.sender, _nftId);
         delete nftIdToCollectionId[_nftId];
+        emit nftRemovedFromCollection(_collectionId, _nftId, msg.sender);
     }
 
     /**

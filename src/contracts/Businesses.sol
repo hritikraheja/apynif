@@ -54,8 +54,19 @@ contract Businesses is ReentrancyGuard{
     mapping(uint256 => uint256) public collectionIdToBusinessId;
     mapping(address => uint256) public employeeAddressToIndex;
     mapping(address => uint256) public employeeAddressToBusinessId;
-    address public marketplaceContractAddress;
-    Marketplace public marketplaceContractInstance;
+    address marketplaceContractAddress;
+    Marketplace marketplaceContractInstance;
+
+    event businessCreated(uint businessId, string businessName, uint feeePercent, address adminAddress);
+    event businessRemoved(uint businessId, address adminAddress);
+    event employeeAddedToBusiness(uint bId, address employeeAddress, address adminAddress);
+    event employeeRemovedFromBusiness(uint bId, address employeeAddress, address adminAddress);  
+    event collectionAddedToBusiness(uint bId, uint collectionId, address adminAddress);
+    event nftAddedToBusiness(uint bId, uint nftId, address adminAddress);
+    event collectionRemovedFromBusiness(uint bId, uint collectionId, address adminAddress);
+    event nftRemovedFromBusiness(uint bId, uint nftId, address adminAddress);
+    event businessFeeUpdated(uint bId, uint newFeePercent, address adminAddress);
+
 
     /**
     This modifier specifies that only super admin can add/delete a  business.
@@ -95,19 +106,19 @@ contract Businesses is ReentrancyGuard{
     This method creates a business, increments the businessCount, generates a new and unique
     business Id, adds the business to the businesses array and maintains the mapping of 
     business Id to its corresponding index in the businesses array.
-    @param _businessName - The name of the business to be created.
-    @param _businessLogoUri - The logo uri of the business to be created.
+    @param _bName - The name of the business to be created.
+    @param _bLogoUri - The logo uri of the business to be created.
     @param _feePercent - The fee percentage charged by the business to be created.
     @param _adminAddress - The address of the business admin.
     @param _employees - An array consisting of addresses of all employees in the business.
     @return This method returns the id of the newly created business.
     */
-    function addBusiness(string memory _businessName, string memory _businessLogoUri,
+    function addBusiness(string memory _bName, string memory _bLogoUri,
     uint256 _feePercent, address _adminAddress, address[] memory _employees) public onlySuperAdmin returns(uint256){
         _businessIdGenerator.increment();
         uint256[] memory _emptyArray;
         Definitions.Business memory _newBusiness = Definitions.Business(_businessIdGenerator.current(),
-        _businessName, _businessLogoUri, _feePercent, _adminAddress, 0, 0, _emptyArray,
+     _bName, _bLogoUri, _feePercent, _adminAddress, 0, 0, _emptyArray,
         new uint256[](0),_employees);
         businesses.push(_newBusiness);
         businessIdToIndex[_businessIdGenerator.current()] = businesses.length - 1;
@@ -115,6 +126,7 @@ contract Businesses is ReentrancyGuard{
            addEmployee(_businessIdGenerator.current(), _employees[_i]);
         }
         businessCount++;
+        emit businessCreated(_businessIdGenerator.current(), _bName, _feePercent, _adminAddress);
         return _businessIdGenerator.current();
     }
 
@@ -128,6 +140,7 @@ contract Businesses is ReentrancyGuard{
         uint256 _index  = businessIdToIndex[_businessId];
         require(_index != 0 || businesses[_index].businessId == _businessId, "Business doesn't exist");
         uint256 _employeeCount = businesses[_index].employees.length;
+        address admin = businesses[_index].adminAddress;
         for(uint256 _i = 0; _i < _employeeCount; _i++){
             address _employeeAddress = businesses[_index].employees[_employeeCount - _i - 1];
             businesses[_index].employees.pop();
@@ -143,6 +156,7 @@ contract Businesses is ReentrancyGuard{
         delete businessIdToIndex[_businessId];
         businesses.pop();
         businessCount--;
+        emit businessRemoved(_businessId, admin);
     }
 
     /**
@@ -158,6 +172,7 @@ contract Businesses is ReentrancyGuard{
         businesses[_index].collectionCount = businesses[_index].collectionCount + 1;
         collectionIdToBusinessId[_collectionId] = _businessId;
         collectionIdToIndex[_collectionId] = businesses[_index].collectionIds.length - 1;
+        emit collectionAddedToBusiness(_businessId, _collectionId, businesses[_index].adminAddress);
     }
 
     /**
@@ -189,10 +204,7 @@ contract Businesses is ReentrancyGuard{
         uint256 _newCollectionId = collectionsContractInstance.createCollection(_collectionName,
         _collectionCoverImageUri, _collectionDescription, _collectionOwnerName, 
         _tokenIds, _category, msg.sender);
-        businesses[_index].collectionIds.push(_newCollectionId);
-        businesses[_index].collectionCount = businesses[_index].collectionCount + 1;
-        collectionIdToBusinessId[_newCollectionId] = _businessId;
-        collectionIdToIndex[_newCollectionId] = businesses[_index].collectionIds.length - 1;
+        addCollectionToBusiness(_businessId, _newCollectionId);
     }
 
     /**
@@ -209,6 +221,7 @@ contract Businesses is ReentrancyGuard{
         businesses[_index].singleNftCount = businesses[_index].singleNftCount + 1;
         nftIdToBusinessId[_nftId] = _businessId;
         nftIdToIndex[_nftId] = businesses[_index].nftIds.length - 1;
+        emit nftAddedToBusiness(_businessId, _nftId, businesses[_index].adminAddress);
     }
 
     /**
@@ -230,15 +243,12 @@ contract Businesses is ReentrancyGuard{
     @param _category - The category of the nft that is to be minted and added to the business.
     */
     function createNftInBusiness(uint256 _businessId ,string memory _tokenUri, uint256 _price,
-        string memory _category) public nonReentrant{
+        string memory _category) public{
             uint256 _index = businessIdToIndex[_businessId];
             require(msg.sender == businesses[_index].adminAddress || employeeAddressToBusinessId[msg.sender] == _businessId, "Only admin or employee can create an nft to the business.");
             uint256 _newNftId = nftContractInstance.createNft(_tokenUri,
             _price, _category, msg.sender);
-            businesses[_index].nftIds.push(_newNftId);
-            businesses[_index].singleNftCount = businesses[_index].singleNftCount + 1;
-            nftIdToBusinessId[_newNftId] = _businessId;
-            nftIdToIndex[_newNftId] = businesses[_index].nftIds.length - 1;
+            addNftToBusiness(_businessId, _newNftId);
     }
 
     /**
@@ -262,6 +272,7 @@ contract Businesses is ReentrancyGuard{
         businesses[_index].collectionCount = businesses[_index].collectionCount - 1;
         delete collectionIdToIndex[_collectionId];
         delete collectionIdToBusinessId[_collectionId];
+        emit collectionRemovedFromBusiness(_businessId, _collectionId, businesses[_index].adminAddress);
     }
 
     /**
@@ -285,6 +296,7 @@ contract Businesses is ReentrancyGuard{
         businesses[_index].singleNftCount = businesses[_index].singleNftCount - 1;
         delete nftIdToIndex[_nftId];
         delete nftIdToBusinessId[_nftId];
+        emit nftRemovedFromBusiness(_businessId, _nftId, businesses[_index].adminAddress);
     }
 
     /**
@@ -295,7 +307,8 @@ contract Businesses is ReentrancyGuard{
     function updateFeePercent(uint256 _businessId, uint256 _newFee) public{
         uint256 _index = businessIdToIndex[_businessId];
         require(msg.sender == businesses[_index].adminAddress, "Only admin can update the fee percent.");
-        businesses[_index].feePercent = _newFee;
+        businesses[_index].feePercent = _newFee; 
+        emit businessFeeUpdated(_businessId, _newFee, businesses[_index].adminAddress);
     }
 
     /**
@@ -310,6 +323,7 @@ contract Businesses is ReentrancyGuard{
         businesses[_index].employees.push(_newEmployee);
         employeeAddressToBusinessId[_newEmployee] = _businessId;
         employeeAddressToIndex[_newEmployee] = businesses[_index].employees.length - 1;
+        emit employeeAddedToBusiness(_businessId, _newEmployee, businesses[_index].adminAddress);
     }
 
     /**
@@ -331,6 +345,7 @@ contract Businesses is ReentrancyGuard{
         if(businesses[_index].employees.length != 0){
             employeeAddressToIndex[businesses[_index].employees[_employeeIndex]] = _employeeIndex;
         }
+        emit employeeRemovedFromBusiness(_businessId, _employeeAddress, businesses[_index].adminAddress);
     }
 
     /**
@@ -364,28 +379,6 @@ contract Businesses is ReentrancyGuard{
         require(businessCount != 0, "Invalid business ID.");
         uint256 _index = businessIdToIndex[_businessId];
         return businesses[_index].employees;
-    }
-
-    /**
-    This method returns the fee percentage charged by the respective business ID.
-    @param _bId - The id of the business of which the fee percent is to be fetched.
-    @return - The fee percent charged by the business.
-    */
-    function getBusinessFeePercentByBusinessId(uint256 _bId) public view returns(uint256) {
-        require(businessCount != 0, "Invalid business ID.");
-        uint256 _index = businessIdToIndex[_bId];
-        return businesses[_index].feePercent;
-    }
-    
-    /**
-    This method returns the admin address of the respective business ID.
-    @param _bId - The id of the business whose admin address is to be fetched.
-    @return - The address of the particular business.
-    */
-    function getBusinessAdminByBusinessId(uint256 _bId) public view returns(address){
-        require(businessCount != 0, "Invalid business ID.");
-        uint256 _index = businessIdToIndex[_bId];
-        return businesses[_index].adminAddress;
     }
 
     /**

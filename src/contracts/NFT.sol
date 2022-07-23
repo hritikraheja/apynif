@@ -36,6 +36,12 @@ contract NFT is ERC721URIStorage, ERC721Burnable, ReentrancyGuard{
     address marketplaceContractAddress;
     Marketplace marketplaceContractInstance;
 
+    event nftCreated(uint nftId, uint price, address seller, string category);
+    event nftDeleted(uint nftId, address ownedBy);
+    event nftListed(uint nftId, address seller);
+    event nftUnlisted(uint nftId, address seller);
+    event nftPriceUpdated(uint nftId, address seller, uint newPrice);
+
     /**
     ERC721 constructor is called with the provided token name and symbol.
     */
@@ -78,6 +84,7 @@ contract NFT is ERC721URIStorage, ERC721Burnable, ReentrancyGuard{
         price, _sender, false, false, _category);
         idToIndex[_tokenIdGenerator.current()] = singleNfts.length - 1;
         setApprovalForAll(marketplaceContractAddress, true);
+        emit nftCreated(_tokenIdGenerator.current(), price, _sender, _category);
         return _tokenIdGenerator.current();
     }
 
@@ -92,6 +99,7 @@ contract NFT is ERC721URIStorage, ERC721Burnable, ReentrancyGuard{
         removeNftFromSingleNftsArray(sender , _nftId);
         delete nfts[_nftId];
         nftCount--;
+        emit nftDeleted(_nftId, nfts[_nftId].seller);
     }
 
     /**
@@ -167,6 +175,7 @@ contract NFT is ERC721URIStorage, ERC721Burnable, ReentrancyGuard{
         nfts[_nftId].isListed = true;
         nfts[_nftId].isSold = false;
         safeTransferFrom(msg.sender, marketplaceContractAddress, _nftId);
+        emit nftListed(_nftId, nfts[_nftId].seller);
     }
 
     /**
@@ -178,6 +187,7 @@ contract NFT is ERC721URIStorage, ERC721Burnable, ReentrancyGuard{
         require(sender == nfts[_nftId].seller, "Only owner can unlist an NFT");
         nfts[_nftId].isListed = false;
         marketplaceContractInstance.transferNftBackToOwner(_nftId, sender);
+        emit nftUnlisted(_nftId, nfts[_nftId].seller);
     }
 
     /**
@@ -209,6 +219,7 @@ contract NFT is ERC721URIStorage, ERC721Burnable, ReentrancyGuard{
     function updatePrice(address sender, uint256 _nftId, uint256 _price) external{
         require(msg.sender == nfts[_nftId].seller || (msg.sender == marketplaceContractAddress && sender == nfts[_nftId].seller), "Only owner can change price of the NFT");
         nfts[_nftId].price = _price;
+        emit nftPriceUpdated(_nftId, nfts[_nftId].seller, _price);
     }
 
     /**

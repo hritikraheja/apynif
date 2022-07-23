@@ -42,8 +42,16 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
     uint256[] nftsOnAuction;
     mapping (uint256 => uint256) nftIdToAuctionIndex;
 
-
     event itemListed(address operator, address from, uint nftId, bytes v);
+    event feeAccountUpdated(address superAdmin, address newFeeAccount);
+    event superAdminChanged(address oldSuperAdmin, address newSuperAdmin);
+    event feePercentChanged(address superAdmin, uint newFee);
+    event nftSold(uint _nftId, address seller, address buyer, uint price);
+    event nftClaimedAfterAuction(uint _nftId, address seller, address highestBidder, uint highestBid);
+    event nftPlacedOnAuction(uint nftId, address seller, uint basePrice, uint biddingTime);
+    event nftWithdrawnFromAuction(uint nftId, address seller);
+    event auctionExtended(uint nftId, uint biddingTimeExtentedBy, address seller);
+    event bidPlaced(uint nftId, address bidder, uint bid);
 
     /**
     This modifier allows only super admin to perform a specific task.
@@ -96,6 +104,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
     */
     function updateFeeAccount(address _newFeeAccount) public onlySuperAdmin{
         feeAccount = payable(_newFeeAccount);
+        emit feeAccountUpdated(superAdmin, _newFeeAccount);
     }
 
     /**
@@ -104,7 +113,9 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
     @param _newSuperAdmin - The new super admin address that is to be updated.
     */
     function changeSuperAdmin(address _newSuperAdmin) public onlySuperAdmin{
+        address _temp = superAdmin;
         superAdmin = _newSuperAdmin;
+        emit superAdminChanged(_temp, _newSuperAdmin);
     }
 
     /**
@@ -114,6 +125,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
     */
     function changeFeePercent(uint _newFee) public onlySuperAdmin{
         marketplaceFeePercent = _newFee;
+        emit feePercentChanged(superAdmin, _newFee);
     }
 
     /**
@@ -132,8 +144,9 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         uint256 businessFee = 0;
         feeAccount.transfer(feeAmount);
         if(_bId != 0){
-            businessFee = businessesContractInstance.getBusinessFeePercentByBusinessId(_bId) * _price / 100;
-            address businessAdmin = businessesContractInstance.getBusinessAdminByBusinessId(_bId);
+            uint _bIndex = businessesContractInstance.businessIdToIndex(_bId);
+            (,,,uint _fee, address businessAdmin,,) = businessesContractInstance.businesses(_bIndex);
+            businessFee = _fee * _price/100;
             payable(businessAdmin).transfer(businessFee);
             businessesContractInstance.removeNftFromBusiness(_bId, _nftId);
         }
@@ -144,6 +157,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         IERC721(address(nftContractInstance)).safeTransferFrom(address(this), msg.sender,
         _nftId);
         nftContractInstance.setSold(_nftId, msg.sender);
+        emit nftSold(_nftId, _seller, msg.sender, _price);
     }
 
     /**
@@ -167,8 +181,9 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         uint256 businessFee = 0;
         feeAccount.transfer(feeAmount);
         if(_bId != 0){
-            businessFee = businessesContractInstance.getBusinessFeePercentByBusinessId(_bId) * _price / 100;
-            address businessAdmin = businessesContractInstance.getBusinessAdminByBusinessId(_bId);
+            uint _bIndex = businessesContractInstance.businessIdToIndex(_bId);
+            (,,,uint _fee, address businessAdmin,,) = businessesContractInstance.businesses(_bIndex);
+            businessFee = _fee * _price / 100;
             payable(businessAdmin).transfer(businessFee);
             businessesContractInstance.removeNftFromBusiness(_bId, _nftId);
         }
@@ -186,6 +201,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         nftIdToAuctionIndex[nftsOnAuction[_temp]] = _temp;
         nftsOnAuction.pop();
         delete nftIdToAuctionIndex[_nftId];
+        emit nftClaimedAfterAuction(_nftId, _seller, msg.sender, _price);
     }
 
     /**
@@ -223,6 +239,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         onGoingAuctions[_nftId] = Definitions.NftOnAuction(_nftId, address(0), basePrice, block.timestamp + biddingTimeInSec);
         nftsOnAuction.push(_nftId);
         nftIdToAuctionIndex[_nftId] = nftsOnAuction.length-1;
+        emit nftPlacedOnAuction(_nftId, msg.sender, basePrice, biddingTimeInSec);
     }
 
     /**
@@ -238,6 +255,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         nftIdToAuctionIndex[nftsOnAuction[_temp]] = _temp;
         nftsOnAuction.pop();
         delete nftIdToAuctionIndex[_nftId];
+        emit nftWithdrawnFromAuction(_nftId, msg.sender);
     }
 
     /**
@@ -249,6 +267,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         require(nftsOnAuction.length != 0 || nftIdToAuctionIndex[_nftId] != 0 || nftsOnAuction[0] == _nftId, "The provided nft is not on auction currently.");
         require (msg.sender == nftContractInstance.getNftByTokenId(_nftId).details.seller, "Only owner can extend the time of an auction.");
         onGoingAuctions[_nftId].bid_end_time = onGoingAuctions[_nftId].bid_end_time + _timeToBeAddedInSeconds;
+        emit auctionExtended(_nftId, _timeToBeAddedInSeconds, msg.sender);
     }
 
     /**
@@ -264,6 +283,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         require (block.timestamp <= onGoingAuctions[_nftId].bid_end_time, "The auction has ended. You cannot bid now.");
         onGoingAuctions[_nftId].highestBidder = msg.sender;
         onGoingAuctions[_nftId].highestBid = _bid;
+        emit bidPlaced(_nftId, msg.sender, _bid);
     }
 
     /**

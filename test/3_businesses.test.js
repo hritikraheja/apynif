@@ -36,10 +36,9 @@ contract('Businesses', async([deployer, investor]) => {
         })
 
         it('Created business has the correct details', async() => {
-            const _admin = await businessesContract.getBusinessAdminByBusinessId('1');
-            const _fee = await businessesContract.getBusinessFeePercentByBusinessId('1');
-            assert.equal(_admin, investor);
-            assert.equal(_fee, '5');
+            const _business = await businessesContract.businesses(0);
+            assert.equal(_business.adminAddress, investor);
+            assert.equal(_business.feePercent, '5');
         })
 
         it('Business removed from marketplace successfully', async() => {
@@ -98,8 +97,8 @@ contract('Businesses', async([deployer, investor]) => {
 
         it('Business fee updated successfully', async() => {
             await businessesContract.updateFeePercent('2', '10', {from : investor});
-            const _fee = await businessesContract.getBusinessFeePercentByBusinessId('2');
-            assert.equal(_fee, 10);
+            const _business = await businessesContract.businesses(0);
+            assert.equal(_business.feePercent, 10);
         })
     })
 
