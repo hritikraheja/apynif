@@ -139,6 +139,8 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard{
         Definitions.Nft memory _nft = nftContractInstance.getNftByTokenId(_nftId);
         uint256 _price = _nft.details.price;
         address _seller = _nft.details.seller;
+        require(msg.sender != _seller, "You cannot buy your own NFT.");
+        require(!_nft.details.isSold, "NFT is already sold.");
         require(msg.value == _price, "Please submit the asking price in order to complete the purchase");
         uint256 feeAmount = marketplaceFeePercent * _price / 100;
         uint256 businessFee = 0;
