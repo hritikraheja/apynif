@@ -37519,8 +37519,8 @@
     "3": {
       "events": {},
       "links": {},
-      "address": "0x840C8C676440f6782631B86692682E3c667dADa4",
-      "transactionHash": "0xc2bd0e7a47c6167f15d3c1bf4f2136ef8fa82e8c5778c7232757471c03a41ae9"
+      "address": "0x60CEd315693f3d93F936c98686daEAdd8a5275DA",
+      "transactionHash": "0x7c51de5c27afdcfa19ce3a3b8f28cf5cdfd3e69c9b154d333b1013ae8c084dbc"
     },
     "5777": {
       "events": {},
@@ -37793,7 +37793,7 @@
     }
   },
   "schemaVersion": "3.4.8",
-  "updatedAt": "2022-07-24T10:24:13.801Z",
+  "updatedAt": "2022-07-24T10:34:39.311Z",
   "networkType": "ethereum",
   "devdoc": {
     "author": ": Hritik Raheja",
